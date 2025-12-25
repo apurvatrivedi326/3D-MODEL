@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PSIT College Campus Model</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="info">
+    <h2>PSIT Campus 3D</h2>
+    <p>Left Click: Rotate | Right Click: Pan | Scroll: Zoom In/Out</p>
+    <p>Look for the <b>BCA Building</b> to see inside!</p>
+</div>
+
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // --- 1. SCENE SETUP ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB); // Sky Blue
+    scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 30, 60);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    // Controls (Zoom In/Out, Rotate)
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+    sunLight.position.set(50, 100, 50);
+    sunLight.castShadow = true;
+    sunLight.shadow.camera.left = -50;
+    sunLight.shadow.camera.right = 50;
+    sunLight.shadow.camera.top = 50;
+    sunLight.shadow.camera.bottom = -50;
+    scene.add(sunLight);
+
+    // Ground (Grass)
+    const groundGeo = new THREE.PlaneGeometry(200, 200);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x2E8B57 }); // SeaGreen
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Roads
+    const roadGeo = new THREE.PlaneGeometry(20, 200);
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const road = new THREE.Mesh(roadGeo, roadMat);
+    road.rotation.x = -Math.PI / 2;
+    road.position.y = 0.05;
+    scene.add(road);
+
+    // --- HELPER FUNCTIONS ---
+
+    // Function to create text labels as sprites
+    function createTextSprite(message, scale = 5) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 128;
+        context.font = "Bold 40px Arial";
+        context.fillStyle = "rgba(255,255,255,1.0)";
+        context.textAlign = "center";
+        context.fillText(message, 128, 70);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(scale, scale / 2, 1);
+        return sprite;
+    }
+
+    // Function to create a standard building
+    function createBuilding(x, z, name, color, isMedical = false) {
+        const geo = new THREE.BoxGeometry(15, 12, 15);
+        const mat = new THREE.MeshStandardMaterial({ color: color });
+        const building = new THREE.Mesh(geo, mat);
+        building.position.set(x, 6, z);
+        building.castShadow = true;
+        building.receiveShadow = true;
+        scene.add(building);
+
+        // Name Label
+        const label = createTextSprite(name, 10);
+        label.position.set(0, 8, 0);
+        building.add(label);
+
+        // Windows
+        for(let i=-5; i<=5; i+=5) {
+            for(let j=2; j<10; j+=4) {
+                const winGeo = new THREE.BoxGeometry(2, 2, 15.2);
+                const winMat = new THREE.MeshStandardMaterial({color: 0x88CCFF, metalness: 0.8});
+                const win = new THREE.Mesh(winGeo, winMat);
+                win.position.set(i, j-6, 0);
+                building.add(win);
+            }
+        }
+
+        // Medical Cross
+        if (isMedical) {
+            const crossV = new THREE.Mesh(new THREE.BoxGeometry(1, 4, 1), new THREE.MeshBasicMaterial({color:0xff0000}));
+            const crossH = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 1), new THREE.MeshBasicMaterial({color:0xff0000}));
+            crossV.position.set(0, 0, 8);
+            crossH.position.set(0, 0, 8);
+            building.add(crossV);
+            building.add(crossH);
+        }
+    }
+
+    // --- 2. BUILDINGS ---
+
+    // 1. B.Tech Building
+    createBuilding(-30, -30, "B.Tech Block", 0xA0522D);
+
+    // 2. BBA Building
+    createBuilding(30, -30, "BBA Block", 0xCD853F);
+
+    // 3. MCA Building
+    createBuilding(-30, 30, "MCA Block", 0xD2691E);
+
+    // 4. Medical Shell
+    createBuilding(50, 0, "Medical Cell", 0xFFFFFF, true);
+
+    // 5. Canteen
+    const canteenGeo = new THREE.CylinderGeometry(8, 8, 6, 8);
+    const canteenMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00 });
+    const canteen = new THREE.Mesh(canteenGeo, canteenMat);
+    canteen.position.set(30, 3, 50);
+    scene.add(canteen);
+    const canteenLabel = createTextSprite("Canteen", 8);
+    canteenLabel.position.set(0, 5, 0);
+    canteen.add(canteenLabel);
+
+
+    // --- 3. SPECIAL BCA BUILDING (Detailed Interior) ---
+    // Make walls glass so we can see inside
+    const bcaGroup = new THREE.Group();
+    bcaGroup.position.set(30, 0, 30);
+    scene.add(bcaGroup);
+
+    // Glass Walls
+    const wallGeo = new THREE.BoxGeometry(16, 12, 16);
+    const wallMat = new THREE.MeshPhysicalMaterial({ 
+        color: 0xADD8E6, 
+        transparent: true, 
+        opacity: 0.3, 
+        roughness: 0, 
+        metalness: 0.1,
+        side: THREE.DoubleSide
+    });
+    const bcaWalls = new THREE.Mesh(wallGeo, wallMat);
+    bcaWalls.position.y = 6;
+    bcaGroup.add(bcaWalls);
+    
+    // Label
+    const bcaLabel = createTextSprite("BCA Block (Zoom In)", 12);
+    bcaLabel.position.set(0, 14, 0);
+    bcaGroup.add(bcaLabel);
+
+    // Floor inside
+    const bcaFloor = new THREE.Mesh(new THREE.PlaneGeometry(15,15), new THREE.MeshStandardMaterial({color: 0x808080}));
+    bcaFloor.rotation.x = -Math.PI/2;
+    bcaFloor.position.y = 0.1;
+    bcaGroup.add(bcaFloor);
+
+    // Whiteboard (Front wall)
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(8, 4), new THREE.MeshBasicMaterial({color: 0xffffff}));
+    board.position.set(0, 5, -7);
+    bcaGroup.add(board);
+
+    // Projector
+    const projBox = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 1), new THREE.MeshStandardMaterial({color: 0x333333}));
+    projBox.position.set(0, 10, 0);
+    bcaGroup.add(projBox);
+    // Projector Light cone
+    const coneGeo = new THREE.ConeGeometry(2, 6, 32, 1, true);
+    const coneMat = new THREE.MeshBasicMaterial({color: 0xAACCFF, transparent: true, opacity: 0.2});
+    const lightCone = new THREE.Mesh(coneGeo, coneMat);
+    lightCone.position.set(0, 7, -3.5);
+    lightCone.rotation.x = -Math.PI/3; 
+    bcaGroup.add(lightCone);
+
+    // AC Unit
+    const acUnit = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 1), new THREE.MeshStandardMaterial({color: 0xffffff}));
+    acUnit.position.set(6, 9, 0);
+    bcaGroup.add(acUnit);
+
+    // Fan (Simple cross)
+    const fanGroup = new THREE.Group();
+    fanGroup.position.set(0, 10, 0);
+    const blade1 = new THREE.Mesh(new THREE.BoxGeometry(4, 0.1, 0.5), new THREE.MeshStandardMaterial({color: 0x333333}));
+    const blade2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 4), new THREE.MeshStandardMaterial({color: 0x333333}));
+    fanGroup.add(blade1, blade2);
+    bcaGroup.add(fanGroup);
+    
+    // Animate Fan
+    function animateFan() {
+        fanGroup.rotation.y += 0.1;
+    }
+
+    // Teacher
+    const teacher = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1.5, 4), new THREE.MeshStandardMaterial({color: 0xff0000}));
+    teacher.position.set(2, 1.5, -5);
+    bcaGroup.add(teacher);
+
+    // Students and Desks
+    for(let r = -2; r <= 2; r+=2) { // Rows
+        for(let c = -4; c <= 4; c+=3) { // Columns
+            // Desk
+            const desk = new THREE.Mesh(new THREE.BoxGeometry(2, 1.5, 1), new THREE.MeshStandardMaterial({color: 0x8B4513}));
+            desk.position.set(c, 0.75, r + 2);
+            bcaGroup.add(desk);
+
+            // Student (Head and Body)
+            const studentBody = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 1, 4), new THREE.MeshStandardMaterial({color: Math.random() * 0xffffff}));
+            studentBody.position.set(c, 1.2, r + 2.5); // Sitting behind desk
+            bcaGroup.add(studentBody);
+        }
+    }
+
+
+    // --- 4. ENVIRONMENT & EXTRAS ---
+
+    // PSIT Banner Main Entrance
+    const pole1 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 10), new THREE.MeshStandardMaterial({color: 0x555555}));
+    const pole2 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 10), new THREE.MeshStandardMaterial({color: 0x555555}));
+    pole1.position.set(-8, 5, 80);
+    pole2.position.set(8, 5, 80);
+    scene.add(pole1, pole2);
+
+    const bannerBoard = new THREE.Mesh(new THREE.BoxGeometry(18, 4, 1), new THREE.MeshStandardMaterial({color: 0x00008B})); // Dark Blue
+    bannerBoard.position.set(0, 9, 80);
+    scene.add(bannerBoard);
+    
+    const psitLabel = createTextSprite("PSIT COLLEGE", 10);
+    psitLabel.position.set(0, 0, 0.6);
+    bannerBoard.add(psitLabel);
+
+    // Guider (New Student Help)
+    const guiderGeo = new THREE.CapsuleGeometry(0.6, 2, 4);
+    const guiderMat = new THREE.MeshStandardMaterial({color: 0xFFD700}); // Gold color
+    const guider = new THREE.Mesh(guiderGeo, guiderMat);
+    guider.position.set(-5, 1, 75);
+    scene.add(guider);
+    const helpLabel = createTextSprite("Student Guide", 3);
+    helpLabel.position.set(0, 2.5, 0);
+    guider.add(helpLabel);
+
+    // Parking Area
+    const parkingGeo = new THREE.PlaneGeometry(30, 40);
+    const parkingMat = new THREE.MeshStandardMaterial({color: 0x555555});
+    const parking = new THREE.Mesh(parkingGeo, parkingMat);
+    parking.rotation.x = -Math.PI/2;
+    parking.position.set(60, 0.1, 60);
+    scene.add(parking);
+
+    function createCar(x, z, color) {
+        const carGroup = new THREE.Group();
+        carGroup.position.set(x, 0.5, z);
+        
+        // Body
+        const body = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 2), new THREE.MeshStandardMaterial({color: color}));
+        // Top
+        const top = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 1.8), new THREE.MeshStandardMaterial({color: 0x333333}));
+        top.position.y = 0.9;
+        
+        carGroup.add(body, top);
+        scene.add(carGroup);
+    }
+
+    createCar(60, 60, 0xff0000);
+    createCar(55, 65, 0x0000ff);
+    createCar(65, 55, 0xffffff);
+
+    // Plants and Flowers
+    function createPlant(x, z) {
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x8B4513}));
+        stem.position.set(x, 1, z);
+        const leaves = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5), new THREE.MeshStandardMaterial({color: 0x228B22}));
+        leaves.position.set(x, 2.5, z);
+        scene.add(stem, leaves);
+        
+        // Random flower dots
+        for(let i=0; i<3; i++) {
+            const flower = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshBasicMaterial({color: Math.random() > 0.5 ? 0xff0000 : 0xffff00}));
+            flower.position.set(x + (Math.random()-0.5), 2.5 + (Math.random()-0.5), z + (Math.random()-0.5));
+            scene.add(flower);
+        }
+    }
+
+    // Place random plants
+    for(let i=0; i<20; i++) {
+        let x = (Math.random() * 100) - 50;
+        let z = (Math.random() * 100) - 50;
+        // Avoid road
+        if(x > -12 && x < 12) continue; 
+        createPlant(x, z);
+    }
+
+    // --- ANIMATION LOOP ---
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        animateFan(); // Spin the fan in BCA
+        renderer.render(scene, camera);
+    }
+
+    // Handle Window Resize
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+
+</script>
+</body>
+</html>
